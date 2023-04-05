@@ -3,17 +3,17 @@ import sizeOf from 'image-size';
 import * as http from 'http';
 import * as https from 'https';
 
-let DEVICE_UUID:string = 'ilwsOC74XaF1QDL4aqg50up4AQfCiaTssH3QkU7d6bY0351h5VztgHAOw0XAYCdhJQBkWu8ztVNY5CJqTSTB7w==';
-let DEVICE_NAME:string = 'DESKTOP-72G9J6A';
+let L_UUID:string = 'ilwsOC74XaF1QDL4aqg50up4AQfCiaTssH3QkU7d6bY0351h5VztgHAOw0XAYCdhJQBkWu8ztVNY5CJqTSTB7w==';
+let L_NAME:string = 'DESKTOP-72G9J6A';
 let L_EMAIL:string = '01048330230';//'01080615820';//'01056490575';//'01084433988';
 let L_PASSWORD:string = 'soo123!@';//'aawwxx5820';//'aawwxx5649';//'ssj48089749';
-let C_EMAIL:string = '01080615820';
-let C_PASSWORD:string = 'aawwxx5820';
+
 let C_UUID:string = 'u1486eAuFKWKYGQohTVAIWBCwUvt9KO/RO1R1JrwkFuXbL7juMh7H/h6DLn+9sIZySgLrZEGtZvtEG8+sZOnMp==';
 let C_NAME:string = 'DESKTOP-12415';
-let EMAIL:string = 'jwsong914@gmail.com';//'01048330230';//'01080615820';//'01056490575';//'01084433988';//'01021329880';
-let PASSWORD:string = 's940914kww';//'soo123!@';//'aawwxx5820';//'aawwxx5649';//'ssj48089749';//'people123!@';
+let C_EMAIL:string = 'jwsong914@gmail.com';//'01048330230';//'01080615820';//'01056490575';//'01084433988';//'01021329880';
+let C_PASSWORD:string = 's940914kww';//'soo123!@';//'aawwxx5820';//'aawwxx5649';//'ssj48089749';//'people123!@';
 
+//interface
 interface LoginCredentials {
     email: string;
     password: string;
@@ -23,49 +23,39 @@ interface DeviceInfo {
     name: string;
 }
 
-const listnerCred: LoginCredentials = {
+//credentials
+const listenerCred: LoginCredentials = {
   email: L_EMAIL,
   password: L_PASSWORD
 };
-const listnerDevice: DeviceInfo = {
-    uuid: DEVICE_UUID,
-    name: DEVICE_NAME
-}
+
 const clientCred: LoginCredentials = {
-  email: EMAIL,
-  password: PASSWORD
+  email: C_EMAIL,
+  password: C_PASSWORD
+}
+
+//devices
+const listenerDevice: DeviceInfo = {
+    uuid: L_UUID,
+    name: L_NAME
 }
 const clientDevice: DeviceInfo = {
   uuid: C_UUID,
   name: C_NAME
 }
+
+//version
 const version = {
   version: '3.4.7',
   appVersion: '3.4.7.3369'
 };
 
+//TalkClients
 const LISTENER = new Kakao.TalkClient(version);
 const CLIENT = new Kakao.TalkClient(version);
-//CLIENT_1.on('chat', (data,channel)=> {
-  //console.log(data)
-  //if(data.text.includes('테스트')) {
-    //joinOpenChat(channel, "https://open.kakao.com/o/gpMD9Kbf", );
-    
-  //}
-  //if (data.text.startsWith("!실프 ")) { //오픈아이디 넣기
-   // const num = bson.Long.fromString(data.text.slice(4)).toString(2).length - 29;
-   //let num2 = bson.Long.fromInt(Number("0b" + bson.Long.fromString(data.text.slice(4)).toString(2).slice(num))).toString()     
-    //channel.sendChat(num2);
- //}
-
-//});
-
-
-
-
 
 //Async Functions
-async function forward_chat(from_channel: Kakao.TalkOpenChannel, to_channel: Kakao.TalkOpenChannel | Kakao.TalkNormalChannel, data_to_pack: Kakao.TalkChatData){
+async function forward_chat(from_channel: Kakao.TalkOpenChannel | Kakao.TalkChannel, to_channel: Kakao.TalkOpenChannel | Kakao.TalkNormalChannel, data_to_pack: Kakao.TalkChatData){
     const content = await build_chat(from_channel, data_to_pack);
     if(content instanceof Buffer) { //if image
         const template = {
@@ -87,7 +77,7 @@ async function demux_chat(){
 
 }
 
-async function build_chat(channel: Kakao.TalkOpenChannel, data: Kakao.TalkChatData): Promise<Buffer | Kakao.Chat> { //add functionality to handle files and videos later
+async function build_chat(channel: Kakao.TalkOpenChannel | Kakao.TalkChannel, data: Kakao.TalkChatData): Promise<Buffer | Kakao.Chat> { //add functionality to handle files and videos later
     const chatBuilder = new Kakao.ChatBuilder();
     let chat: Kakao.Chat = {
         type: 0, // Use an appropriate default type value
@@ -228,14 +218,15 @@ async function client_login(credentials: LoginCredentials, login_client: Kakao.T
 
 //EntryPoint
 async function main() {
-    const listen = await client_login(listnerCred, LISTENER, listnerDevice);
+    
+    const listen = await client_login(listenerCred, LISTENER, listenerDevice);
     const client_1 = await client_login(clientCred, CLIENT, clientDevice);
     const login_completion_res = await Promise.all([listen,client_1]);
-    const listener_channel = await getChatRoom(LISTENER,"https://open.kakao.com/o/gNsd6Mdf");
+    const listener_channel = await getChatRoom(LISTENER,"https://open.kakao.com/o/gMo2sNdf");
     const client_channel = await CLIENT.channelList.normal.get(new Kakao.Long("368422921588209"));
-    console.log(await CLIENT.channelList.open.getJoinInfo("https://open.kakao.com/o/gNsd6Mdf"));
     client_channel?.sendChat('CLIENT WORKING');
     listener_channel?.sendChat('LISTENER WORKING');
+
 
     LISTENER.channelList.open.on('chat', async(data: Kakao.TalkChatData, channel: Kakao.TalkOpenChannel) => {
         const sender = data.getSenderInfo(channel);
