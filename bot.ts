@@ -3,15 +3,15 @@ import sizeOf from 'image-size';
 import * as http from 'http';
 import * as https from 'https';
 
-let L_UUID:string = 'ilwsOC74XaF1QDL4aqg50up4AQfCiaTssH3QkU7d6bY0351h5VztgHAOw0XAYCdhJQBkWu8ztVNY5CJqTSTB7w==';
-let L_NAME:string = 'DESKTOP-72G9J6A';
-let L_EMAIL:string = '01048330230';//'01080615820';//'01056490575';//'01084433988';
-let L_PASSWORD:string = 'soo123!@';//'aawwxx5820';//'aawwxx5649';//'ssj48089749';
+let L_UUID:string = 'iU28atbi/7lH0I1/HmE1m3WZIY7rfjLSzrMubQT0OynYDf8EPAkTeZ2EcKSu/bi5Oc503fQSa9cEO7K3EY3OIi==';
+let L_NAME:string = 'DESKTOP-TWOWAA';
+let L_EMAIL:string = '01048330230';
+let L_PASSWORD:string = 'soo123!@';
 
-let C_UUID:string = 'u1486eAuFKWKYGQohTVAIWBCwUvt9KO/RO1R1JrwkFuXbL7juMh7H/h6DLn+9sIZySgLrZEGtZvtEG8+sZOnMp==';
-let C_NAME:string = 'DESKTOP-12415';
-let C_EMAIL:string = 'jwsong914@gmail.com';//'01048330230';//'01080615820';//'01056490575';//'01084433988';//'01021329880';
-let C_PASSWORD:string = 's940914kww';//'soo123!@';//'aawwxx5820';//'aawwxx5649';//'ssj48089749';//'people123!@';
+let C_UUID:string = 'hKDgNHpyHo5wUoIqQljd/VU7roHHJtjADYR9B4+yCUKuBOZCwDaLxxMDruaKwi9VZA7En8xjCCim3LvE1iPYeg==';
+let C_NAME:string = 'DESKTOP-AMAAMA';
+let C_EMAIL:string = '01084433988';
+let C_PASSWORD:string = 'ssj48089749';
 
 //interface
 interface LoginCredentials {
@@ -222,8 +222,8 @@ async function main() {
     const listen = await client_login(listenerCred, LISTENER, listenerDevice);
     const client_1 = await client_login(clientCred, CLIENT, clientDevice);
     const login_completion_res = await Promise.all([listen,client_1]);
-    const listener_channel = await getChatRoom(LISTENER,"https://open.kakao.com/o/gMo2sNdf");
-    const client_channel = await CLIENT.channelList.normal.get(new Kakao.Long("368422921588209"));
+    const listener_channel = await getChatRoom(LISTENER,"https://open.kakao.com/o/gkeKZPdf");
+    const client_channel = await getChatRoom(CLIENT,"https://open.kakao.com/o/gCJSZPdf");
     client_channel?.sendChat('CLIENT WORKING');
     listener_channel?.sendChat('LISTENER WORKING');
 
