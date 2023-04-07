@@ -3,15 +3,15 @@ import sizeOf from 'image-size';
 import * as http from 'http';
 import * as https from 'https';
 
-let L_UUID:string = 'iU28atbi/7lH0I1/HmE1m3WZIY7rfjLSzrMubQT0OynYDf8EPAkTeZ2EcKSu/bi5Oc503fQSa9cEO7K3EY3OIi==';
-let L_NAME:string = 'DESKTOP-TWOWAA';
-let L_EMAIL:string = '01048330230';
-let L_PASSWORD:string = 'soo123!@';
+let DEMUX_L_UUID:string = 'iU28atbi/7lH0I1/HmE1m3WZIY7rfjLSzrMubQT0OynYDf8EPAkTeZ2EcKSu/bi5Oc503fQSa9cEO7K3EY3OIi==';
+let DEMUX_L_NAME:string = 'DESKTOP-TWOWAA';
+let DEMUX_L_EMAIL:string = '01048330230';
+let DEMUX_L_PASSWORD:string = 'soo123!@';
 
-let C_UUID:string = 'hKDgNHpyHo5wUoIqQljd/VU7roHHJtjADYR9B4+yCUKuBOZCwDaLxxMDruaKwi9VZA7En8xjCCim3LvE1iPYeg==';
-let C_NAME:string = 'DESKTOP-AMAAMA';
-let C_EMAIL:string = '01084433988';
-let C_PASSWORD:string = 'ssj48089749';
+let DEMUX_ADMIN_CLIENT_UUID:string = 'hKDgNHpyHo5wUoIqQljd/VU7roHHJtjADYR9B4+yCUKuBOZCwDaLxxMDruaKwi9VZA7En8xjCCim3LvE1iPYeg==';
+let DEMUX_ADMIN_CLIENT_NAME:string = 'DESKTOP-AMAAMA';
+let DEMUX_ADMIN_CLIENT_EMAIL:string = '01084433988';
+let DEMUX_ADMIN_CLIENT_PASSWORD:string = 'ssj48089749';
 
 //interface
 interface LoginCredentials {
@@ -22,26 +22,30 @@ interface DeviceInfo {
     uuid: string;
     name: string;
 }
+interface BroadcastClientChannelPair {
+  client: Kakao.TalkClient;
+  url: string;
+}
 
 //credentials
 const listenerCred: LoginCredentials = {
-  email: L_EMAIL,
-  password: L_PASSWORD
+  email: DEMUX_L_EMAIL,
+  password: DEMUX_L_PASSWORD
 };
 
 const clientCred: LoginCredentials = {
-  email: C_EMAIL,
-  password: C_PASSWORD
+  email: DEMUX_ADMIN_CLIENT_EMAIL,
+  password: DEMUX_ADMIN_CLIENT_PASSWORD
 }
 
 //devices
 const listenerDevice: DeviceInfo = {
-    uuid: L_UUID,
-    name: L_NAME
+    uuid: DEMUX_L_UUID,
+    name: DEMUX_L_NAME
 }
 const clientDevice: DeviceInfo = {
-  uuid: C_UUID,
-  name: C_NAME
+  uuid: DEMUX_ADMIN_CLIENT_UUID,
+  name: DEMUX_ADMIN_CLIENT_NAME
 }
 
 //version
@@ -51,33 +55,99 @@ const version = {
 };
 
 //TalkClients
-const LISTENER = new Kakao.TalkClient(version);
-const CLIENT = new Kakao.TalkClient(version);
+const DEMUX_LISTENER = new Kakao.TalkClient(version);
+const DEMUX_ADMIN_CLIENT = new Kakao.TalkClient(version);
+const DEMUX_MODERATOR_CLIENT_1 = new Kakao.TalkClient(version);
+const DEMUX_MODERATOR_CLIENT_2 = new Kakao.TalkClient(version);
+const BR_LISTENER = new Kakao.TalkClient(version);
+const BR_CLIENT_1 = new Kakao.TalkClient(version);
+const BR_CLIENT_2 = new Kakao.TalkClient(version);
+
+//Broadcast Source URL
+const broadcastSourceChannelURL = "";
+//Broadcast client-channel pairs
+const braodcastClientChannelPairs: BroadcastClientChannelPair[] = [
+  { client: BR_CLIENT_1, url: "https://open.kakao.com/o/gChannel1URL" },
+  { client: BR_CLIENT_2, url: "https://open.kakao.com/o/gChannel2URL" },
+];
 
 //Async Functions
-async function forward_chat(from_channel: Kakao.TalkOpenChannel | Kakao.TalkChannel, to_channel: Kakao.TalkOpenChannel | Kakao.TalkNormalChannel, data_to_pack: Kakao.TalkChatData){
-    const content = await build_chat(from_channel, data_to_pack);
-    if(content instanceof Buffer) { //if image
-        const template = {
-            name: 'photo',
-            data: content,
-            width: sizeOf(content).width,
-            height: sizeOf(content).height
-        }
-        to_channel.sendMedia(Kakao.KnownChatType.PHOTO,template);
-    }
-    else { //if not image
-        if(content.type){
-            to_channel.sendChat(content);
+async function broadcast_chat(
+  data: Kakao.TalkChatData,
+  destinations: Kakao.TalkOpenChannel | Kakao.TalkNormalChannel | (Kakao.TalkOpenChannel | Kakao.TalkNormalChannel)[]
+) {
+  const content = await build_chat(data);
+  const targetChatrooms = Array.isArray(destinations) ? destinations : [destinations];
+
+  for (const destination of targetChatrooms) {
+    if (content instanceof Buffer) { // if image
+      const template = {
+        name: 'photo',
+        data: content,
+        width: sizeOf(content).width,
+        height: sizeOf(content).height
+      }
+      destination.sendMedia(Kakao.KnownChatType.PHOTO, template);
+    } else { // if not image
+      if (content.type) {
+        destination.sendChat(content);
+      }
     }
   }
 }
 
-async function demux_chat(){
+//demultiplexer
+async function demux_chat(
+  data: Kakao.TalkChatData,
+  sender: any,
+  targetChannelURL: string
+) {
+  const adminMap: Map<string, Kakao.TalkClient> = new Map([
+    // map source admin userId to target admin client
+    ["5271640832072849254", DEMUX_ADMIN_CLIENT],
+  ]);
 
+  const modMap: Map<string, Kakao.TalkClient> = new Map([
+    // map source mod userId to target mod client
+    ["182", DEMUX_MODERATOR_CLIENT_1],
+    ["321", DEMUX_MODERATOR_CLIENT_2]
+  ]);
+
+  // Get the sender's userId as a string
+  const senderUserId = sender.userId.toString();
+
+  let targetClient: Kakao.TalkClient | undefined = undefined;
+
+  // Check if the sender is an admin
+  if (adminMap.has(senderUserId)) {
+    targetClient = adminMap.get(senderUserId);
+    console.log('admin map success');
+  } else if (modMap.has(senderUserId)) {
+    // Check if the sender is a moderator
+    targetClient = modMap.get(senderUserId);
+  }
+
+  if (targetClient) {
+    // Get the target chatroom
+    const target_channel = await getChatRoom(targetClient, targetChannelURL);
+
+    if (target_channel) {
+      // Forward the chat to the target chatroom using the appropriate account client
+      broadcast_chat(data, target_channel);
+    } else {
+      console.error("Failed to get the target channel.");
+    }
+  } else {
+    console.log("Sender is not an admin or moderator, chat will not be forwarded.");
+    console.log(senderUserId);
+  }
 }
 
-async function build_chat(channel: Kakao.TalkOpenChannel | Kakao.TalkChannel, data: Kakao.TalkChatData): Promise<Buffer | Kakao.Chat> { //add functionality to handle files and videos later
+
+
+
+
+async function build_chat(data: Kakao.TalkChatData): Promise<Buffer | Kakao.Chat> { //add functionality to handle files and videos later
     const chatBuilder = new Kakao.ChatBuilder();
     let chat: Kakao.Chat = {
         type: 0, // Use an appropriate default type value
@@ -214,31 +284,49 @@ async function client_login(credentials: LoginCredentials, login_client: Kakao.T
 
 }
 
+//create array of broadcast channel objects using broadcastTargetChannelURLs
+async function bc_channel_objarray(pairs: BroadcastClientChannelPair[]): Promise<(Kakao.TalkOpenChannel | null)[]> {
+  const channels: (Kakao.TalkOpenChannel | null)[] = [];
+  for (const pair of pairs) {
+    const channel = await getChatRoom(pair.client, pair.url);
+    channels.push(channel);
+  }
+  return channels;
+}
 
 
 //EntryPoint
 async function main() {
     
-    const listen = await client_login(listenerCred, LISTENER, listenerDevice);
-    const client_1 = await client_login(clientCred, CLIENT, clientDevice);
-    const login_completion_res = await Promise.all([listen,client_1]);
-    const listener_channel = await getChatRoom(LISTENER,"https://open.kakao.com/o/gkeKZPdf");
-    const client_channel = await getChatRoom(CLIENT,"https://open.kakao.com/o/gCJSZPdf");
-    client_channel?.sendChat('CLIENT WORKING');
+    const listener_login = await client_login(listenerCred, DEMUX_LISTENER, listenerDevice);
+    const admin_client_login = await client_login(clientCred, DEMUX_ADMIN_CLIENT, clientDevice);
+    const login_completion_res = await Promise.all([listener_login,admin_client_login]);
+    const listener_channel = await getChatRoom(DEMUX_LISTENER,"https://open.kakao.com/o/gkeKZPdf");
+    const client_channel_URL = "https://open.kakao.com/o/gCJSZPdf";
+    const client_channel_conn_test = await getChatRoom(DEMUX_ADMIN_CLIENT,client_channel_URL);
+    client_channel_conn_test?.sendChat('ADMIN_CLIENT WORKING');
     listener_channel?.sendChat('LISTENER WORKING');
 
 
-    LISTENER.channelList.open.on('chat', async(data: Kakao.TalkChatData, channel: Kakao.TalkOpenChannel) => {
+    DEMUX_LISTENER.channelList.open.on('chat', async(data: Kakao.TalkChatData, channel: Kakao.TalkOpenChannel) => {
         const sender = data.getSenderInfo(channel);
         if (!sender) return;
         //joinOpenChat(channel, "https://open.kakao.com/o/gI8THDdf", LISTENER);
         const channel_name = channel.getDisplayName();
         console.log('--------------------------------------------------------------\nChannel_Name: ',channel_name,'\nChannel_ID: ',channel.channelId, ": \n\n",data,'\n--------------------------------------------------------------')
         //forward_chat(channel, channel, data);
-        if(client_channel){
-            forward_chat(channel,client_channel,data)
+        if(client_channel_conn_test){
+          demux_chat(data,sender,client_channel_URL);
         }
       });
+
+    BR_LISTENER.channelList.open.on('chat', async(data: Kakao.TalkChatData, channel: Kakao.TalkOpenChannel) => {
+        const sender = data.getSenderInfo(channel);
+        if (!sender) return;
+        const target_array:(Kakao.TalkOpenChannel | null)[] = await bc_channel_objarray(braodcastClientChannelPairs);
+        const valid_channels = target_array.filter((channel) => channel !== null) as Kakao.TalkOpenChannel[];
+        broadcast_chat(data,valid_channels);
+    });
 
 }
 main().then()
